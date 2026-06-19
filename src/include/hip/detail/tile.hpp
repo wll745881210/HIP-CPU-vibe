@@ -588,8 +588,13 @@ namespace hip
         void Tiled_domain::for_each_tile_(
             const F& fn, const std::tuple<Args...>& args) const noexcept
         {
+#if __cpp_lib_execution >= 201902L
             std::for_each(
                 std::execution::par_unseq,
+#else
+            std::for_each(
+                std::execution::seq,
+#endif
                 cbegin(),
                 cend(),
                 make_tile_fn_([&](auto&& tile) noexcept {
@@ -618,8 +623,13 @@ namespace hip
         void Tiled_domain::for_each_unit_tile_(
             const F& fn, const std::tuple<Args...>& args) const noexcept
         {
+#if defined(__HIP_CPU_HAS_STD_EXECUTION_PAR_UNSEQ__)
             std::for_each_n(
                 std::execution::par_unseq,
+#else
+            std::for_each_n(
+                std::execution::seq,
+#endif
                 cbegin(),
                 size(),
                 make_tile_fn_([&](auto&& tile) noexcept {

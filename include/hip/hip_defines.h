@@ -62,7 +62,7 @@
 #if defined(__clang__)
     #define __global__ __attribute__((flatten))//, vectorcall))
 #elif defined(__GNUC__)
-    #if __GNUC__ != 10
+    #if defined(__HIP_CPU_HAS_FLATTEN_SIMD__)
         #define __global__ __attribute__((flatten, simd))
     #else
         #define __global__ __attribute__((flatten))
@@ -101,7 +101,11 @@
         _Pragma("omp declare simd")\
         __attribute__((always_inline, flatten, vectorcall))
 #elif defined(__GNUC__)
-    #define __HIP_TILE_FUNCTION__ __attribute__((always_inline, flatten, simd))
+    #if defined(__HIP_CPU_HAS_FLATTEN_SIMD__)
+        #define __HIP_TILE_FUNCTION__ __attribute__((always_inline, flatten, simd))
+    #else
+        #define __HIP_TILE_FUNCTION__ __attribute__((always_inline, flatten))
+    #endif
 #endif
 
 #if defined(_MSC_VER)  // TODO: revisit when _Pragma is supported

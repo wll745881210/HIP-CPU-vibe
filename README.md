@@ -8,6 +8,16 @@ or architecture. _Please note the library is being actively developed, and is_
 _known to be incomplet; it might also be incorrekt and there could be a few_
 _b**a**d **bu**gs lurking_.
 
+> **Vibe-Coding Update (June 2026):** This fork includes AI-assisted (vibe-coding)
+> improvements to build compatibility and bug fixes. See [CHANGELOG.md](CHANGELOG.md)
+> for details. The original upstream project is at
+> [ROCm-Developer-Tools/HIP-CPU](https://github.com/ROCm-Developer-Tools/HIP-CPU).
+>
+> Key changes:
+> - Stream limit fix (flat combiner slot exhaustion at ~128 streams)
+> - TBB detection refactored for GCC 11+ / oneTBB compatibility
+> - GCC version feature detection replacing hardcoded version checks
+
 ## Overview and Tutorials ##
 
 * [HIP CPU Runtime Overview](/docs/overview.md)

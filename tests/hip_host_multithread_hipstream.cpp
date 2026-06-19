@@ -155,3 +155,27 @@ TEST_CASE(
     REQUIRE_NOTHROW(t1.join());
     REQUIRE_NOTHROW(t2.join());
 }
+
+TEST_CASE(
+    "Many streams created and used without hitting flat combiner slot limit",
+    "[host][hipStream_t][many]")
+{
+    constexpr auto stream_cnt{200u};
+
+    std::vector<hipStream_t> streams(stream_cnt);
+
+    for (auto i = 0u; i != stream_cnt; ++i) {
+        REQUIRE(hipStreamCreate(&streams[i]) == hipSuccess);
+    }
+
+    int* d{};
+    REQUIRE(hipMalloc(&d, stream_cnt * sizeof(int)) == hipSuccess);
+    REQUIRE(hipMemset(d, 0, stream_cnt * sizeof(int)) == hipSuccess);
+
+    for (auto i = 0u; i != stream_cnt; ++i) {
+        REQUIRE(hipStreamDestroy(streams[i]) == hipSuccess);
+    }
+
+    REQUIRE(hipFree(d) == hipSuccess);
+    REQUIRE(hipDeviceSynchronize() == hipSuccess);
+}

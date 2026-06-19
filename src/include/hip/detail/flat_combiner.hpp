@@ -11,7 +11,6 @@
 #include "helpers.hpp"
 
 #include <algorithm>
-#include <array>
 #include <atomic>
 #include <functional>
 #include <climits>
@@ -21,6 +20,7 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace hip
 {
@@ -34,7 +34,7 @@ namespace hip
             struct Slot_;
 
             // DATA - STATICS
-            inline thread_local static std::array<Slot_, UINT8_MAX> requests_{};
+            inline thread_local static std::vector<Slot_> requests_{};
 
             // DATA
             T data_{};
@@ -150,7 +150,9 @@ namespace hip
                 }
             }
 
-            throw std::runtime_error{"Overflowed combiner request array."};
+            requests_.emplace_back(this, new Request_);
+
+            return requests_.back();
         }
 
         // CREATORS
@@ -184,6 +186,10 @@ namespace hip
                 delete it;
 
                 it = tmp;
+            }
+
+            for (auto&& x : requests_) {
+                if (x.data_ptr == this) x.data_ptr = nullptr;
             }
         }
 

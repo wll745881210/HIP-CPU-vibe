@@ -24,6 +24,18 @@ target_include_directories(
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_compile_features(${PROJECT_NAME} INTERFACE cxx_std_17)
 
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
+    message(FATAL_ERROR "GCC ${CMAKE_CXX_COMPILER_VERSION} is too old. GCC 9 or later is required.")
+endif()
+
+include(CheckCXXSourceCompiles)
+check_cxx_source_compiles(
+    "__attribute__((flatten, simd)) void f() {} int main() { return 0; }"
+    HIP_CPU_HAS_FLATTEN_SIMD)
+if (HIP_CPU_HAS_FLATTEN_SIMD)
+    target_compile_definitions(${PROJECT_NAME} INTERFACE __HIP_CPU_HAS_FLATTEN_SIMD__)
+endif()
+
 if (NOT ${CMAKE_CXX_COMPILER_ID} STREQUAL MSVC)
     find_package(Threads REQUIRED)
 
@@ -31,24 +43,32 @@ if (NOT ${CMAKE_CXX_COMPILER_ID} STREQUAL MSVC)
     target_link_libraries(
         ${PROJECT_NAME} INTERFACE ${CMAKE_DL_LIBS} Threads::Threads)
 
-    if(CMAKE_HOST_APPLE)
-        # TODO: The macro name used to detect TBB dependence differs on MacOS
-        set(STL_DEPENDS_ON_TBB ON)
-    else()
-        include(CMakePrintHelpers)
-        include(CheckCXXSymbolExists)
-        set(CMAKE_REQUIRED_FLAGS "-std=c++17")
-        check_cxx_symbol_exists(
-            __PSTL_PAR_BACKEND_TBB "cstddef" STL_DEPENDS_ON_TBB0)
-        if (NOT STL_DEPENDS_ON_TBB0)
-            check_cxx_symbol_exists(
-                _PSTL_PAR_BACKEND_TBB "cstddef" STL_DEPENDS_ON_TBB1)
-        endif ()
-    endif()
-    if (STL_DEPENDS_ON_TBB0 OR STL_DEPENDS_ON_TBB1)
+    include(CheckCXXSourceCompiles)
+    set(_hip_cpu_tbb_check_src
+        "#include <algorithm>\n#include <execution>\n#include <vector>\nint main() {\n  std::vector<int> v{1};\n  std::for_each(std::execution::par, v.begin(), v.end(), [](int&){});\n  return 0;\n}")
+    set(CMAKE_REQUIRED_FLAGS "-std=c++17")
+    set(CMAKE_REQUIRED_LIBRARIES "")
+    check_cxx_source_compiles("${_hip_cpu_tbb_check_src}" _HIP_CPU_PAR_WORKS)
+    if (NOT _HIP_CPU_PAR_WORKS)
         find_package(TBB REQUIRED)
         target_link_libraries(
             ${PROJECT_NAME} INTERFACE TBB::tbb)
+
+        try_compile(_HIP_CPU_TBB_COMPAT_OK
+            "${CMAKE_BINARY_DIR}/CMakeTmp"
+            SOURCES "${PROJECT_SOURCE_DIR}/tools/cmake/tbb_compat_check.cpp"
+            CMAKE_FLAGS "-DCMAKE_CXX_STANDARD=17"
+            LINK_LIBRARIES TBB::tbb Threads::Threads ${CMAKE_DL_LIBS}
+            OUTPUT_VARIABLE _tbb_compat_out)
+        if (NOT _HIP_CPU_TBB_COMPAT_OK)
+            message(FATAL_ERROR
+                "libstdc++ PSTL headers are incompatible with the installed TBB.\n"
+                "  This occurs when GCC < 11 is paired with oneTBB (libtbb12+).\n"
+                "  Solutions:\n"
+                "  1. Upgrade to GCC 11 or later, OR\n"
+                "  2. Install the TBB backward-compatibility package\n"
+                "     (e.g. libtbb2-dev / tbb::tbb_compat / libtbb-dev on older distros)")
+        endif()
     endif()
 else ()
     target_compile_options(${PROJECT_NAME} INTERFACE /openmp:experimental)

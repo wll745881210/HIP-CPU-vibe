@@ -145,7 +145,11 @@ namespace hip
             })};
 
             std::for_each(
+#if __cpp_lib_execution >= 201902L
                 std::execution::par,
+#else
+                std::execution::seq,
+#endif
                 std::begin(streams_),
                 std::end(streams_),
                 [](auto&& x) {
