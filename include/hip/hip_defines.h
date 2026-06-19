@@ -111,5 +111,5 @@
 #if defined(_MSC_VER)  // TODO: revisit when _Pragma is supported
     #define __HIP_VECTORISED_LOOP__ __pragma(omp simd)
 #else
-    #define __HIP_VECTORISED_LOOP__ _Pragma("omp simd")
+    #define __HIP_VECTORISED_LOOP__ _Pragma("omp simd safelen(8) simdlen(8)")
 #endif

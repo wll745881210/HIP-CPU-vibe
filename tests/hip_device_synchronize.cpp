@@ -60,3 +60,46 @@ TEST_CASE("hipDeviceSynchronize()", "[host][hipDevice]")
     REQUIRE(hipDeviceSynchronize() == hipSuccess);
     REQUIRE(A[stream_cnt - 1][0] - 1 == 1 << 30);
 }
+
+__global__
+void Vadd_Float(const float* a, const float* b, float* c, int N)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < N) c[idx] = a[idx] + b[idx];
+}
+
+TEST_CASE("hipKernel() launch syntax", "[host][hipDevice][launch_syntax]")
+{
+    constexpr auto N{1024};
+    float *a_d{}, *b_d{}, *c_d{};
+    float a_h[N], b_h[N], c_h[N];
+
+    for (auto i = 0; i != N; ++i) {
+        a_h[i] = static_cast<float>(i);
+        b_h[i] = static_cast<float>(i * 2);
+    }
+
+    REQUIRE(hipMalloc(&a_d, N * sizeof(float)) == hipSuccess);
+    REQUIRE(hipMalloc(&b_d, N * sizeof(float)) == hipSuccess);
+    REQUIRE(hipMalloc(&c_d, N * sizeof(float)) == hipSuccess);
+
+    REQUIRE(hipMemcpy(
+        a_d, a_h, N * sizeof(float), hipMemcpyHostToDevice) == hipSuccess);
+    REQUIRE(hipMemcpy(
+        b_d, b_h, N * sizeof(float), hipMemcpyHostToDevice) == hipSuccess);
+
+    hipKernel(Vadd_Float, dim3(N / 256), dim3(256))(a_d, b_d, c_d, N);
+
+    REQUIRE(hipDeviceSynchronize() == hipSuccess);
+
+    REQUIRE(hipMemcpy(
+        c_h, c_d, N * sizeof(float), hipMemcpyDeviceToHost) == hipSuccess);
+
+    for (auto i = 0; i != N; ++i) {
+        REQUIRE(c_h[i] == a_h[i] + b_h[i]);
+    }
+
+    REQUIRE(hipFree(a_d) == hipSuccess);
+    REQUIRE(hipFree(b_d) == hipSuccess);
+    REQUIRE(hipFree(c_d) == hipSuccess);
+}

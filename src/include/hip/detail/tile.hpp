@@ -597,7 +597,7 @@ namespace hip
 #endif
                 cbegin(),
                 cend(),
-                make_tile_fn_([&](auto&& tile) noexcept {
+                [&](Tile tile) noexcept {
                 Tile::this_tile_() = std::move(tile);
                 this_tile::has_barrier = false;
 
@@ -615,7 +615,7 @@ namespace hip
                 }
 
                 Fiber::this_fiber_().set_id_(0u);
-            }));
+            });
         }
 
         template<typename F, typename... Args>
@@ -623,7 +623,7 @@ namespace hip
         void Tiled_domain::for_each_unit_tile_(
             const F& fn, const std::tuple<Args...>& args) const noexcept
         {
-#if defined(__HIP_CPU_HAS_STD_EXECUTION_PAR_UNSEQ__)
+#if __cpp_lib_execution >= 201902L
             std::for_each_n(
                 std::execution::par_unseq,
 #else
@@ -632,11 +632,11 @@ namespace hip
 #endif
                 cbegin(),
                 size(),
-                make_tile_fn_([&](auto&& tile) noexcept {
+                [&](Tile tile) noexcept {
                 Tile::this_tile_() = std::move(tile);
 
                 std::apply(fn, args);
-            }));
+            });
         }
 
         // CREATORS

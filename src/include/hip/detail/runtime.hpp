@@ -17,18 +17,16 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
 #include <execution>
 #include <forward_list>
 #include <future>
-#include <iterator>
-#include <limits>
 #include <memory>
-#include <random>
+#include <mutex>
 #include <thread>
 #include <utility>
 #include <vector>
-
-#include <iostream>
 
 #if defined(_MSC_VER)
     #pragma warning(push)
@@ -45,6 +43,9 @@ namespace hip
             inline static Stream internal_stream_{};
             inline static std::forward_list<Stream> streams_{};
             inline static std::atomic<bool> done_{false};
+            inline static std::atomic<std::uint32_t> task_count_{0u};
+            inline static std::condition_variable cv_{};
+            inline static std::mutex cv_mutex_{};
 
             // IMPLEMENTATION - STATICS
             static
@@ -111,19 +112,19 @@ namespace hip
                         });
                     }
 
-                    if (!backoff) wait_all_streams_();
-                    else {
-                        static std::minstd_rand g{std::random_device{}()};
-                        static std::uniform_int_distribution<std::uint32_t> d{
-                            3, 1031};
-
-                        for (auto i = 0u, n = d(g); i != n; ++i) {
-                            pause_or_yield();
-                        }
+                    if (!backoff) {
+                        task_count_.store(0u, std::memory_order_release);
+                        wait_all_streams_();
+                    } else {
+                        std::unique_lock<std::mutex> lck{cv_mutex_};
+                        cv_.wait_for(lck, std::chrono::milliseconds{16}, []() {
+                            return done_.load(std::memory_order_acquire) ||
+                                task_count_.load(std::memory_order_acquire) != 0u;
+                        });
                     }
                 } while (!done_);
             }};
-            static struct D { ~D() { done_ = true; r.join(); } } done{};
+            static struct D { ~D() { done_ = true; cv_.notify_one(); r.join(); } } done{};
 
             return r;
         }
@@ -223,7 +224,9 @@ namespace hip
             Task r{[=](auto&&) { update_timestamp(*p); }};
             add_done_signal(*p, r.get_future());
 
+            task_count_.fetch_add(1u, std::memory_order_release);
             s->apply([&r](auto&& ts) { ts.push_back(std::move(r)); });
+            cv_.notify_one();
         }
 
         inline

@@ -419,6 +419,42 @@ hipError_t hipInit(std::uint32_t flags) noexcept
     return hip::detail::init_rt(flags);
 }
 
+template<typename F>
+struct KernelLauncher final {
+    F kernel;
+    dim3 grid;
+    dim3 block;
+    std::uint32_t sharedMem;
+    hipStream_t stream;
+
+    template<typename... Args>
+    void
+    operator()(Args&&... args) const
+    {
+        ::hip::detail::launch(
+            grid,
+            block,
+            sharedMem,
+            stream,
+            [k = kernel](auto&&... xs) noexcept {
+                k(std::forward<decltype(xs)>(xs)...);
+            },
+            std::make_tuple(std::forward<Args>(args)...));
+    }
+};
+
+template<typename F>
+KernelLauncher<F>
+hipKernel(
+    F kernel,
+    dim3 grid,
+    dim3 block,
+    std::uint32_t sharedMem = 0u,
+    hipStream_t stream = nullptr) noexcept
+{
+    return KernelLauncher<F>{kernel, grid, block, sharedMem, stream};
+}
+
 #define hipLaunchKernelGGL(\
     kernel_name, num_blocks, dim_blocks, group_mem_bytes, stream, ...)\
     if (true) {\

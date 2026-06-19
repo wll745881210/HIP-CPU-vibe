@@ -205,12 +205,26 @@ namespace hip
             tmp.request_ptr->done = false;
             add_request_(tmp.request_ptr);
 
-            std::uint8_t n{UINT8_MAX};
+            std::uint32_t spin{16u};
+            std::uint32_t total{0u};
             do {
                 if (tmp.request_ptr->done) return;
                 if (try_combine_apply_()) return;
 
-                if (n--) pause_or_yield();
+                if (spin) {
+                    pause_or_yield();
+                    --spin;
+                }
+                else {
+                    std::this_thread::yield();
+                }
+
+                ++total;
+                if (total >= 32u) {
+                    spin = (spin << 1u) | 1u;
+                    if (spin > 8192u) spin = 8192u;
+                    total = 0u;
+                }
             } while (true);
         }
 

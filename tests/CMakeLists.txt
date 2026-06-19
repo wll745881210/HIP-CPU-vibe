@@ -110,6 +110,9 @@ add_test(
     NAME "legacy_hipDeviceSynchronize"
     COMMAND legacy_tests [host][hipDevice])
 add_test(
+    NAME "legacy_hipKernel_launch_syntax"
+    COMMAND legacy_tests [host][hipDevice][launch_syntax])
+add_test(
     NAME "legacy_hipGetDevice"
     COMMAND legacy_tests [host][hipDevice][get_device])
 add_test(NAME "legacy_malloc_free" COMMAND legacy_tests [host][malloc][free])

@@ -40,7 +40,7 @@ namespace hip
 
             *p = std::malloc(byte_cnt);
 
-            if (!p) return hipErrorOutOfMemory;
+            if (!*p) return hipErrorOutOfMemory;
 
             return hipSuccess;
         }

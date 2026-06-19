@@ -50,10 +50,12 @@ int main()
         hipMemcpy(A_d, A_h, sizeBytes, hipMemcpyHostToDevice);
         hipMemcpy(B_d, B_h, sizeBytes, hipMemcpyHostToDevice);
 
-        // Launch kernel onto default accelerator
+        // Launch kernel onto default accelerator (new syntax)
         int blockSize = 256;                                      // pick arbitrary block size
         int blocks = (sizeElements + blockSize - 1) / blockSize;  // round up to launch enough blocks
-        hipLaunchKernelGGL(vadd_hip, dim3(blocks), dim3(blockSize), 0, 0, A_d, B_d, C_d, sizeElements);
+        hipKernel(vadd_hip, dim3(blocks), dim3(blockSize))(A_d, B_d, C_d, sizeElements);
+        // Equivalent legacy syntax:
+        // hipLaunchKernelGGL(vadd_hip, dim3(blocks), dim3(blockSize), 0, 0, A_d, B_d, C_d, sizeElements);
 
         // D2H Copy
         hipMemcpy(C_h, C_d, sizeBytes, hipMemcpyDeviceToHost);
